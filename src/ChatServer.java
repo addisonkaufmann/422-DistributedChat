@@ -3,6 +3,7 @@ import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Vector;
 
 import javax.swing.JOptionPane;
 
@@ -15,11 +16,11 @@ public class ChatServer {
 	}
 
 	private ArrayList<ObjectOutputStream> clientOutputStreams;
-	private ArrayList<String> users;
+	private Vector<String> users;
 
 	public ChatServer() {
 		clientOutputStreams = new ArrayList<ObjectOutputStream>();
-		users = new ArrayList<String>();
+		users = new Vector<String>();
 		try {
 			@SuppressWarnings("resource")
 			ServerSocket serverSock = new ServerSocket(PORT_NUMBER);
@@ -28,7 +29,7 @@ public class ChatServer {
 				ObjectOutputStream writer = new ObjectOutputStream(clientSocket.getOutputStream());
 				clientOutputStreams.add(writer);
 				
-				Thread t = new Thread(new ReadInputThread(clientSocket, users));
+				Thread t = new Thread(new ReadInputThread(clientSocket));
 				t.start();
 				System.out.println("got a connection");
 			}
@@ -40,10 +41,8 @@ public class ChatServer {
 
 		ObjectInputStream reader;
 		Socket sock;
-		ArrayList<String> users; 
 
-		public ReadInputThread(Socket clientSocket, ArrayList<String> users) {
-			this.users = users;
+		public ReadInputThread(Socket clientSocket) {
 			try {
 				sock = clientSocket;
 				if (sock == null)
@@ -77,6 +76,7 @@ public class ChatServer {
 		public void tellEveryone(String message) {
 			for (ObjectOutputStream output : clientOutputStreams) {
 				try {
+					System.out.println("writing " + users.toString());
 					output.writeObject(users);
 					output.flush();
 				} catch (Exception ex) {

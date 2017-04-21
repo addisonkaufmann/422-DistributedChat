@@ -7,6 +7,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.Vector;
 
 import javax.swing.JFrame;
 import javax.swing.JOptionPane;
@@ -72,9 +73,10 @@ public class ChatClient extends JFrame {
 		String message;
 		try {
 			while (true) {
-				message = ((ArrayList<String>) inputFromServer.readObject()).toString();
+				message = ((Vector<String>) inputFromServer.readObject()).toString();
 				System.out.println(message);
 				inputFromServerTextArea.append(message + "\n");
+				
 			}
 		} catch (Exception ex) {
 			System.out.println("Client lost server");
