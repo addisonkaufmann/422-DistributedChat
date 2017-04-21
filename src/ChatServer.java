@@ -63,6 +63,7 @@ public class ChatServer {
 					// Wait for the client send a writeObject message to the server
 					message = (String) reader.readObject();
 					users.add(message);
+					users = new Vector<String>(users); 
 					System.out.println(users.toString());
 					// Send the same message from the server to all clients
 					tellEveryone(message);

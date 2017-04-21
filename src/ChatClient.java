@@ -73,7 +73,8 @@ public class ChatClient extends JFrame {
 		String message;
 		try {
 			while (true) {
-				message = ((Vector<String>) inputFromServer.readObject()).toString();
+				Vector<String> temp = (Vector<String>) inputFromServer.readObject();
+				message = temp.toString();
 				System.out.println(message);
 				inputFromServerTextArea.append(message + "\n");
 				
