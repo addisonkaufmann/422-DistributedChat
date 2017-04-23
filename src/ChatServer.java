@@ -29,7 +29,7 @@ public class ChatServer {
 				ObjectOutputStream writer = new ObjectOutputStream(clientSocket.getOutputStream());
 				clientOutputStreams.add(writer);
 				
-				Thread t = new Thread(new ReadInputThread(clientSocket));
+				Thread t = new Thread(new ReadInputThread(clientSocket, writer));
 				t.start();
 				System.out.println("got a connection");
 			}
@@ -40,9 +40,10 @@ public class ChatServer {
 	private class ReadInputThread implements Runnable {
 
 		ObjectInputStream reader;
+		ObjectOutputStream writer;
 		Socket sock;
 
-		public ReadInputThread(Socket clientSocket) {
+		public ReadInputThread(Socket clientSocket, ObjectOutputStream writer) {
 			try {
 				sock = clientSocket;
 				if (sock == null)
@@ -51,6 +52,7 @@ public class ChatServer {
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}
+			this.writer = writer;
 		}
 
 		@Override
@@ -66,7 +68,22 @@ public class ChatServer {
 					users = new Vector<String>(users); 
 					System.out.println(users.toString());
 					// Send the same message from the server to all clients
-					tellEveryone(message);
+					tellEveryone();
+					
+					// Wait for closing of the chat client
+					message = (String) reader.readObject(); 
+					System.out.println(message);
+					for (String user : users) {
+						System.out.println(users);
+						if (user.equals(message)) {
+							System.out.println("Found user to remove");
+							users.remove(user);
+							break;
+						}
+					}
+					users = new Vector<String>(users);
+					clientOutputStreams.remove(this.writer);
+					tellEveryone();
 //				}
 			} catch (Exception ex) {
 
@@ -74,7 +91,7 @@ public class ChatServer {
 		}
 
 		// Send the same message to all clients
-		public void tellEveryone(String message) {
+		public void tellEveryone() {
 			for (ObjectOutputStream output : clientOutputStreams) {
 				try {
 					System.out.println("writing " + users.toString());
