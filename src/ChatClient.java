@@ -1,5 +1,7 @@
+import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Container;
+import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
@@ -12,10 +14,12 @@ import java.util.ArrayList;
 import java.util.Vector;
 
 import javax.swing.JFrame;
+import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.ListModel;
 
 public class ChatClient extends JFrame {
 
@@ -32,6 +36,9 @@ public class ChatClient extends JFrame {
 	public static String host = "localhost";
 
 	private JTextArea inputFromServerTextArea;
+	private JList<String> userList = new JList<>();
+	private VectorListModel<String> users;
+
 
 	public ChatClient() {
 		setTitle("Chat Client");
@@ -39,21 +46,23 @@ public class ChatClient extends JFrame {
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.addWindowListener(new ListenForWindowClose());
 		Container cp = getContentPane();
-		cp.setLayout(null);
+		cp.setLayout(new FlowLayout());
 
 		outgoing = new JTextField("Replace me with your name");
 		outgoing.addActionListener(new InputFieldListener());
-		outgoing.setSize(300, 20);
-		outgoing.setLocation(30, 10);
 		cp.add(outgoing);
+		
+		users = new VectorListModel<String>();
+		userList.setModel(users);
 
-		inputFromServerTextArea = new JTextArea();
+//		inputFromServerTextArea = new JTextArea();
+		cp.add(userList);
 
-		JScrollPane scroller = new JScrollPane(inputFromServerTextArea);
-		scroller.setSize(300, 400);
-		scroller.setLocation(30, 40);
-		scroller.setBackground(Color.WHITE);
-		cp.add(scroller);
+//		JScrollPane scroller = new JScrollPane(inputFromServerTextArea);
+//		scroller.setSize(300, 400);
+//		scroller.setLocation(30, 40);
+//		scroller.setBackground(Color.WHITE);
+//		cp.add(scroller);
 
 		setVisible(true);
 		outgoing.requestFocus();
@@ -77,9 +86,10 @@ public class ChatClient extends JFrame {
 		try {
 			while (true) {
 				Vector<String> temp = (Vector<String>) inputFromServer.readObject();
-				message = temp.toString();
-				System.out.println(message);
-				inputFromServerTextArea.append(message + "\n");
+				users = new VectorListModel<String>(temp);
+				userList.setModel(users);
+				userList.updateUI();
+				System.out.println(users.toString());
 				
 			}
 		} catch (Exception ex) {
