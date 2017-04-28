@@ -14,18 +14,19 @@ public class ChatServer {
 	public static void main(String[] args) {
 		new ChatServer();
 	}
-// ufkc u too
+
 	private ArrayList<ObjectOutputStream> clientOutputStreams;
-	private VectorListModel<String> users;
+	private Vector<User> users;
 
 	public ChatServer() {
 		clientOutputStreams = new ArrayList<ObjectOutputStream>();
-		users = new VectorListModel<String>();
+		users = new Vector<User>();
 		try {
 			@SuppressWarnings("resource")
 			ServerSocket serverSock = new ServerSocket(PORT_NUMBER);
 			while (true) {
 				Socket clientSocket = serverSock.accept();
+				System.out.println(clientSocket.getPort());
 				ObjectOutputStream writer = new ObjectOutputStream(clientSocket.getOutputStream());
 				clientOutputStreams.add(writer);
 				
@@ -34,6 +35,7 @@ public class ChatServer {
 				System.out.println("got a connection");
 			}
 		} catch (Exception ex) {
+			ex.printStackTrace();
 		}
 	}
 	
@@ -60,33 +62,34 @@ public class ChatServer {
 
 			String message;
 			try {
-
-//				while (true) {
-					// Wait for the client send a writeObject message to the server
-					message = (String) reader.readObject();
-					users.add(message);
-					users = new VectorListModel<String>(users); 
-					System.out.println(users.toString());
-					// Send the same message from the server to all clients
-					tellEveryone();
-					
-					// Wait for closing of the chat client
-					message = (String) reader.readObject(); 
-					System.out.println(message);
-					for (String user : users) {
-						System.out.println(users);
-						if (user.equals(message)) {
-							System.out.println("Found user to remove");
-							users.remove(user);
-							break;
-						}
+				// Tell the new client its port
+				writer.writeObject(sock.getPort());
+				System.out.println("Told them their port");
+				// Wait for the client to send back it's new User object with their name
+				User u = (User) reader.readObject();
+				System.out.println("Got back their user object");
+				users.add(u);
+				users = new Vector<User>(users); 
+				System.out.println(users.toString());
+				// Send the same message from the server to all clients
+				tellEveryone();
+				
+				// Wait for closing of the chat client
+				message = (String) reader.readObject(); 
+				System.out.println(message);
+				for (User user : users) {
+					System.out.println(users);
+					if (user.getName().equals(message)) {
+						System.out.println("Found user to remove");
+						users.remove(user);
+						break;
 					}
-					users = new VectorListModel<String>(users);
-					clientOutputStreams.remove(this.writer);
-					tellEveryone();
-//				}
+				}
+				users = new Vector<User>(users); 
+				clientOutputStreams.remove(this.writer);
+				tellEveryone();
 			} catch (Exception ex) {
-
+				ex.printStackTrace();
 			}
 		}
 
