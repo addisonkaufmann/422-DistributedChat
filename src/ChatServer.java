@@ -16,11 +16,11 @@ public class ChatServer {
 	}
 
 	private ArrayList<ObjectOutputStream> clientOutputStreams;
-	private Vector<String> users;
+	private VectorListModel<String> users;
 
 	public ChatServer() {
 		clientOutputStreams = new ArrayList<ObjectOutputStream>();
-		users = new Vector<String>();
+		users = new VectorListModel<String>();
 		try {
 			@SuppressWarnings("resource")
 			ServerSocket serverSock = new ServerSocket(PORT_NUMBER);
@@ -65,7 +65,7 @@ public class ChatServer {
 					// Wait for the client send a writeObject message to the server
 					message = (String) reader.readObject();
 					users.add(message);
-					users = new Vector<String>(users); 
+					users = new VectorListModel<String>(users); 
 					System.out.println(users.toString());
 					// Send the same message from the server to all clients
 					tellEveryone();
@@ -81,7 +81,7 @@ public class ChatServer {
 							break;
 						}
 					}
-					users = new Vector<String>(users);
+					users = new VectorListModel<String>(users);
 					clientOutputStreams.remove(this.writer);
 					tellEveryone();
 //				}

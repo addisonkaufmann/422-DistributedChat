@@ -35,7 +35,7 @@ public class ChatClient extends JFrame {
 	private Socket socketServer;
 	public static String host = "localhost";
 
-	private JTextArea inputFromServerTextArea;
+	private JTextArea text;
 	private JList<String> userList = new JList<>();
 	private VectorListModel<String> users;
 
@@ -56,7 +56,9 @@ public class ChatClient extends JFrame {
 		userList.setModel(users);
 
 //		inputFromServerTextArea = new JTextArea();
+		text = new JTextArea();
 		cp.add(userList);
+		cp.add(text);
 
 //		JScrollPane scroller = new JScrollPane(inputFromServerTextArea);
 //		scroller.setSize(300, 400);
@@ -85,10 +87,11 @@ public class ChatClient extends JFrame {
 		String message;
 		try {
 			while (true) {
-				Vector<String> temp = (Vector<String>) inputFromServer.readObject();
+				VectorListModel<String> temp = (VectorListModel<String>) inputFromServer.readObject();
 				users = new VectorListModel<String>(temp);
 				userList.setModel(users);
 				userList.updateUI();
+				text.append(users.toString() + "\n");
 				System.out.println(users.toString());
 				
 			}
