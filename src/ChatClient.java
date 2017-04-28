@@ -92,8 +92,8 @@ public class ChatClient extends JFrame {
 		boxesPanel.removeAll();
 		userBoxes.clear();
 		
-		for( String user : users){
-			JCheckBox box = new JCheckBox(user);
+		for( User user : users){
+			JCheckBox box = new JCheckBox(user.toString());
 			box.addActionListener(selectListener);
 			userBoxes.add(box);
 			boxesPanel.add(box);
