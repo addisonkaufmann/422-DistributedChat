@@ -34,6 +34,7 @@ public class ChatClient extends JFrame {
 	private ObjectInputStream inputFromServer;
 	private Socket socketServer;
 	public static String host = "localhost";
+	private Container cp;
 
 	private JTextArea text;
 	private JList<String> userList = new JList<>();
@@ -45,7 +46,7 @@ public class ChatClient extends JFrame {
 		setSize(380, 480);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.addWindowListener(new ListenForWindowClose());
-		Container cp = getContentPane();
+		cp = getContentPane();
 		cp.setLayout(new FlowLayout());
 
 		outgoing = new JTextField("Replace me with your name");
@@ -91,6 +92,8 @@ public class ChatClient extends JFrame {
 				users = new VectorListModel<String>(temp);
 				userList.setModel(users);
 				userList.updateUI();
+				cp.remove(userList);
+				cp.add(userList);
 				text.append(users.toString() + "\n");
 				System.out.println(users.toString());
 				
