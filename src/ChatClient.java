@@ -113,8 +113,15 @@ public class ChatClient extends JFrame {
 		boxesPanel.removeAll();
 		userBoxes.clear();
 		
+		if (me == null) {
+			return;
+		}
+		else if (me.getName().equals("")) {
+			return;
+		}
+		
 		for( User user : users){
-			if (me != null && user.getName().equals(me.getName())) {
+			if (user.getName().equals(me.getName())) {
 				continue;
 			}
 			JCheckBox box = new JCheckBox(user.getName());
