@@ -37,31 +37,30 @@ public class ChatClient extends JFrame {
 	private ObjectInputStream inputFromServer;
 	private Socket socketServer;
 	public static String host = "localhost"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
-	private Container cp;
 
 	private JTextArea text;
-//	private JList<String> userList = new JList<>();
-	private VectorListModel<String> users;
 	private ArrayList<JCheckBox> userBoxes;
 	private JPanel boxesPanel;
 	private JButton createButton;
 	private SelectionListener selectListener;
 
+	private Vector<User> users;
+	private int port;
 
 	public ChatClient() {
 		setTitle("Chat Client");
 		setSize(380, 480);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.addWindowListener(new ListenForWindowClose());
-		cp = getContentPane();
+		Container cp = getContentPane();
 		cp.setLayout(new FlowLayout());
 
 		outgoing = new JTextField("Replace me with your name");
 		outgoing.addActionListener(new InputFieldListener());
 		cp.add(outgoing);
 		
-		users = new VectorListModel<String>();
-//		userList.setModel(users);
+
+		users = new Vector<User>();
 
 //		inputFromServerTextArea = new JTextArea();
 		text = new JTextArea();
@@ -115,17 +114,15 @@ public class ChatClient extends JFrame {
 					"Could not find server at " + host + " on port " + ChatServer.PORT_NUMBER);
 			System.exit(0);
 		}
-
+		
 		String message;
 		try {
+			port = (int) inputFromServer.readObject(); // Get this client's port from server
+			System.out.println("received my port: " + port);
 			while (true) {
-				VectorListModel<String> temp = (VectorListModel<String>) inputFromServer.readObject();
-				users = new VectorListModel<String>(temp);
+				Vector<User> temp = (Vector<User>) inputFromServer.readObject();
+				users = new Vector<User>(temp);
 				updateBoxes();
-//				userList.setModel(users);
-//				userList.updateUI();
-//				cp.remove(userList);
-//				cp.add(userList);
 				text.append(users.toString() + "\n");
 				System.out.println(users.toString());
 				
@@ -137,6 +134,7 @@ public class ChatClient extends JFrame {
 				writer.writeObject(this.name);
 			} catch (IOException e) {
 				System.out.println("Couldn't gracefully close connection.");
+				e.printStackTrace();
 			}
 			System.out.println("Client lost server");
 		}
@@ -151,12 +149,15 @@ public class ChatClient extends JFrame {
 				if (firstEntry) {
 					name = outgoing.getText();
 					firstEntry = false;
-					writer.writeObject(name);
+					System.out.println("test");
+					writer.writeObject(new User(name, port));
+					System.out.println("Sent my user object");
 				} else
 					// Don't do this . . . should be done in separate thread with another client
 					//writer.writeObject(name + ": " + outgoing.getText());
 				writer.flush();
 			} catch (Exception ex) {
+				ex.printStackTrace();
 			}
 			outgoing.setText("");
 			outgoing.requestFocus();
