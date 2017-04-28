@@ -9,7 +9,9 @@ import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Vector;
 
@@ -30,7 +32,7 @@ public class ChatClient extends JFrame {
 		new ChatClient();
 	}
 
-	private User me;
+	private User me = null;
 	private JTextField nameEntry;
 	private ObjectOutputStream writer;
 	private ObjectInputStream inputFromServer;
@@ -45,6 +47,7 @@ public class ChatClient extends JFrame {
 
 	private Vector<User> users;
 	private int port;
+	private String name;
 
 	public ChatClient() {
 		setTitle("Chat Client");
@@ -85,6 +88,25 @@ public class ChatClient extends JFrame {
 		setVisible(true);
 		nameEntry.requestFocus();
 		makeConnectionAndReadAllServerOutputFromServer();
+	}
+	
+	private class AcceptChats implements Runnable {
+
+		@Override
+		public void run() {
+			ServerSocket serverSock;
+			try {
+				serverSock = new ServerSocket(0);
+				me = new User(name, serverSock.getLocalPort());
+				while (true) {
+					Socket clientSocket = serverSock.accept();
+					System.out.println("Accepted a chat");
+				}
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+		
 	}
 	
 	private void updateBoxes(){
@@ -149,8 +171,10 @@ public class ChatClient extends JFrame {
 		public void actionPerformed(ActionEvent ev) {
 
 			try {
-				String name = nameEntry.getText();
-				me = new User(name, port);
+				name = nameEntry.getText();
+				Thread acceptConnections = new Thread(new AcceptChats());
+				acceptConnections.start();
+				while (me == null);
 				writer.writeObject(me);
 				System.out.println("Sent my user object");
 				writer.flush();
@@ -160,6 +184,7 @@ public class ChatClient extends JFrame {
 			Container cp = getContentPane();
 			cp.remove(nameEntry);
 			cp.repaint();
+			
 		}
 	}
 	
@@ -201,13 +226,45 @@ public class ChatClient extends JFrame {
 			String names = "";
 			for (JCheckBox box: userBoxes){
 				if (box.isSelected()){
+					for (User u : users) {
+						if (u.getName().equals(box.getText())) {
+							Thread newChat = new Thread(new ChatConnection(u));
+							newChat.start();
+						}
+					}
 					userNames.add(box.getText());
 					names += box.getText() + ", ";
 					
 				}
 			}
 			
-			System.out.println("Creating a chat with " + names);
+			
+			System.out.println("Created a chat with " + names);
+		}
+		
+	}
+	
+	private class ChatConnection implements Runnable {
+		
+		private User user;
+		
+		public ChatConnection(User u) {
+			this.user = u;
+		}
+
+		@Override
+		public void run() {
+			try {
+				socketServer = new Socket(host, user.getPort());
+				writer = new ObjectOutputStream(socketServer.getOutputStream());
+				inputFromServer = new ObjectInputStream(socketServer.getInputStream());
+				System.out.println("Connected to " + user.getName());
+			} catch (UnknownHostException e) {
+				e.printStackTrace();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+			
 		}
 		
 	}
