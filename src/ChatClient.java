@@ -60,7 +60,7 @@ public class ChatClient extends JFrame {
 		text = new JTextArea();
 		cp.add(userList);
 		cp.add(text);
-
+// fuck u
 //		JScrollPane scroller = new JScrollPane(inputFromServerTextArea);
 //		scroller.setSize(300, 400);
 //		scroller.setLocation(30, 40);
