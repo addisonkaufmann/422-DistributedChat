@@ -13,9 +13,12 @@ import java.net.Socket;
 import java.util.ArrayList;
 import java.util.Vector;
 
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
 import javax.swing.JFrame;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
+import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
@@ -33,12 +36,16 @@ public class ChatClient extends JFrame {
 	private ObjectOutputStream writer;
 	private ObjectInputStream inputFromServer;
 	private Socket socketServer;
-	public static String host = "localhost";
+	public static String host = "localhost"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
 	private Container cp;
 
 	private JTextArea text;
-	private JList<String> userList = new JList<>();
+//	private JList<String> userList = new JList<>();
 	private VectorListModel<String> users;
+	private ArrayList<JCheckBox> userBoxes;
+	private JPanel boxesPanel;
+	private JButton createButton;
+	private SelectionListener selectListener;
 
 
 	public ChatClient() {
@@ -54,12 +61,22 @@ public class ChatClient extends JFrame {
 		cp.add(outgoing);
 		
 		users = new VectorListModel<String>();
-		userList.setModel(users);
+//		userList.setModel(users);
 
 //		inputFromServerTextArea = new JTextArea();
 		text = new JTextArea();
-		cp.add(userList);
+//		cp.add(userList);
 		cp.add(text);
+		
+		selectListener = new SelectionListener();
+		boxesPanel = new JPanel();
+		userBoxes = new ArrayList<>();
+		updateBoxes();
+		createButton = new JButton("Create Chat");
+		createButton.setEnabled(false);
+		createButton.addActionListener(new createChatListener());
+		cp.add(boxesPanel); 
+		cp.add(createButton);
 
 //		JScrollPane scroller = new JScrollPane(inputFromServerTextArea);
 //		scroller.setSize(300, 400);
@@ -70,6 +87,20 @@ public class ChatClient extends JFrame {
 		setVisible(true);
 		outgoing.requestFocus();
 		makeConnectionAndReadAllServerOutputFromServer();
+	}
+	
+	private void updateBoxes(){
+		boxesPanel.removeAll();
+		userBoxes.clear();
+		
+		for( String user : users){
+			JCheckBox box = new JCheckBox(user);
+			box.addActionListener(selectListener);
+			userBoxes.add(box);
+			boxesPanel.add(box);
+		}
+		
+
 	}
 
 	private void makeConnectionAndReadAllServerOutputFromServer() {
@@ -90,10 +121,11 @@ public class ChatClient extends JFrame {
 			while (true) {
 				VectorListModel<String> temp = (VectorListModel<String>) inputFromServer.readObject();
 				users = new VectorListModel<String>(temp);
-				userList.setModel(users);
-				userList.updateUI();
-				cp.remove(userList);
-				cp.add(userList);
+				updateBoxes();
+//				userList.setModel(users);
+//				userList.updateUI();
+//				cp.remove(userList);
+//				cp.add(userList);
 				text.append(users.toString() + "\n");
 				System.out.println(users.toString());
 				
@@ -144,5 +176,39 @@ public class ChatClient extends JFrame {
 				System.exit(0);
 			}
 		}
+	}
+	
+	private class SelectionListener implements ActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			System.out.println("action");
+			createButton.setEnabled(true);
+			for(JCheckBox box: userBoxes){
+				if (box.isSelected()){
+					return;
+				}
+			}
+			createButton.setEnabled(false);
+		}
+	}
+	
+	private class createChatListener implements ActionListener {
+
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			ArrayList<String> userNames = new ArrayList<String>();
+			String names = "";
+			for (JCheckBox box: userBoxes){
+				if (box.isSelected()){
+					userNames.add(box.getText());
+					names += box.getText() + ", ";
+					
+				}
+			}
+			
+			System.out.println("Creating a chat with " + names);
+		}
+		
 	}
 }
