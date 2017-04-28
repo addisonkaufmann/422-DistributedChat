@@ -30,9 +30,8 @@ public class ChatClient extends JFrame {
 		new ChatClient();
 	}
 
-	private String name;
-	private boolean firstEntry = true;
-	private JTextField outgoing;
+	private User me;
+	private JTextField nameEntry;
 	private ObjectOutputStream writer;
 	private ObjectInputStream inputFromServer;
 	private Socket socketServer;
@@ -55,9 +54,9 @@ public class ChatClient extends JFrame {
 		Container cp = getContentPane();
 		cp.setLayout(new FlowLayout());
 
-		outgoing = new JTextField("Replace me with your name");
-		outgoing.addActionListener(new InputFieldListener());
-		cp.add(outgoing);
+		nameEntry = new JTextField("Replace me with your name");
+		nameEntry.addActionListener(new InputFieldListener());
+		cp.add(nameEntry);
 		
 
 		users = new Vector<User>();
@@ -84,7 +83,7 @@ public class ChatClient extends JFrame {
 //		cp.add(scroller);
 
 		setVisible(true);
-		outgoing.requestFocus();
+		nameEntry.requestFocus();
 		makeConnectionAndReadAllServerOutputFromServer();
 	}
 	
@@ -93,7 +92,10 @@ public class ChatClient extends JFrame {
 		userBoxes.clear();
 		
 		for( User user : users){
-			JCheckBox box = new JCheckBox(user.toString());
+			if (me != null && user.getName().equals(me.getName())) {
+				continue;
+			}
+			JCheckBox box = new JCheckBox(user.getName());
 			box.addActionListener(selectListener);
 			userBoxes.add(box);
 			boxesPanel.add(box);
@@ -128,10 +130,11 @@ public class ChatClient extends JFrame {
 				
 			}
 		} catch (Exception ex) {
+			ex.printStackTrace();
 			try {
 				// Attempt to gracefully close the connection with the server 
 				// by telling it this client is logging off
-				writer.writeObject(this.name);
+				writer.writeObject(me.getName());
 			} catch (IOException e) {
 				System.out.println("Couldn't gracefully close connection.");
 				e.printStackTrace();
@@ -146,21 +149,17 @@ public class ChatClient extends JFrame {
 		public void actionPerformed(ActionEvent ev) {
 
 			try {
-				if (firstEntry) {
-					name = outgoing.getText();
-					firstEntry = false;
-					System.out.println("test");
-					writer.writeObject(new User(name, port));
-					System.out.println("Sent my user object");
-				} else
-					// Don't do this . . . should be done in separate thread with another client
-					//writer.writeObject(name + ": " + outgoing.getText());
+				String name = nameEntry.getText();
+				me = new User(name, port);
+				writer.writeObject(me);
+				System.out.println("Sent my user object");
 				writer.flush();
 			} catch (Exception ex) {
 				ex.printStackTrace();
 			}
-			outgoing.setText("");
-			outgoing.requestFocus();
+			Container cp = getContentPane();
+			cp.remove(nameEntry);
+			cp.repaint();
 		}
 	}
 	
@@ -170,7 +169,7 @@ public class ChatClient extends JFrame {
 		@Override
 		public void windowClosing(WindowEvent e) {
 			try {
-				writer.writeObject(ChatClient.this.name);  // Notify the server that this client is closing.
+				writer.writeObject(ChatClient.this.me.getName());  // Notify the server that this client is closing.
 			} catch (IOException e1) {
 				e1.printStackTrace();
 			} finally {
