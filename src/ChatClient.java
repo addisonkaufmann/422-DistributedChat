@@ -12,6 +12,7 @@ import java.awt.event.WindowEvent;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.net.UnknownHostException;
@@ -43,8 +44,8 @@ public class ChatClient extends JFrame {
 
 	private Socket socketServer;
 	public static String host = "192.168.0.3"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
-	private static String myIP = "192.168.0.3";
-
+	private String myIP;
+	
 	private JTextArea text;
 	private ArrayList<JCheckBox> userBoxes;
 	private JPanel boxesPanel;
@@ -65,6 +66,14 @@ public class ChatClient extends JFrame {
 		this.addWindowListener(new ListenForWindowClose());
 		Container cp = getContentPane();
 		cp.setLayout(new BorderLayout());
+		
+		try {
+			myIP = InetAddress.getLocalHost().getHostAddress();
+		} catch (UnknownHostException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+			System.exit(-1);
+		}
 
 		nameEntry = new JTextField("Your name");
 		nameEntry.addActionListener(new InputFieldListener());
