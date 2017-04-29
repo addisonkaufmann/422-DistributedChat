@@ -330,6 +330,13 @@ public class ChatClient extends JFrame {
 					}	
 				}
 			}
+			names = names.substring(0, names.length()-2);
+			for (int i = 0; i < chatPane.getTabCount(); i++){
+				if (names.equals(chatPane.getTitleAt(i))){
+					JOptionPane.showMessageDialog(null,"You already have a chat open with those members");
+					return;
+				}
+			}
 			
 			Thread newChat = new Thread(new ChatConnection(newChatUsers));
 			newChat.start();
