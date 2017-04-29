@@ -38,8 +38,7 @@ public class ChatClient extends JFrame {
 	private JTextField nameEntry;
 	private ObjectOutputStream writer;
 	private ObjectInputStream inputFromServer;
-	private Vector<ObjectOutputStream> chatWriterStreams;
-	private Vector<ObjectInputStream> chatReaderStreams;
+
 	private Socket socketServer;
 	public static String host = "localhost"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
 
@@ -68,8 +67,7 @@ public class ChatClient extends JFrame {
 		nameEntry.addActionListener(new InputFieldListener());
 		cp.add(nameEntry, BorderLayout.PAGE_START);
 		
-		chatWriterStreams = new Vector<ObjectOutputStream>();
-		chatReaderStreams = new Vector<ObjectInputStream>();
+		
 		users = new Vector<User>();
 
 		text = new JTextArea();
@@ -112,16 +110,19 @@ public class ChatClient extends JFrame {
 					Socket peerSocket = serverSock.accept();
 										
 					ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
-					chatWriterStreams.add(newChatWriterStream);
+//					chatWriterStreams.add(newChatWriterStream);
 					newChatWriterStream.writeObject(me.getName());
+					newChatWriterStream.flush();
+
 					
 					ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
-					chatReaderStreams.add(newChatReaderStream);
+//					chatReaderStreams.add(newChatReaderStream);
 					
 					System.out.println("Accepted a chat");
 
 					ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
-					reader.run();
+					Thread t = new Thread(reader);
+					t.start();
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -205,6 +206,7 @@ public class ChatClient extends JFrame {
 			try {
 				name = nameEntry.getText();
 				setTitle("Chat Client: " + name);
+				System.out.println("My name is " + name);
 				Thread acceptConnections = new Thread(new AcceptChats());
 				acceptConnections.start();
 				while (me == null);
@@ -222,11 +224,16 @@ public class ChatClient extends JFrame {
 	}
 	
 	private class chatInputListener implements ActionListener {
-		private ObjectOutputStream writer;
+		private ObjectOutputStream writer = null;
+		private Vector<ObjectOutputStream> allWriters = null;
 		private JTextArea chatArea;
 		
 		public chatInputListener(ObjectOutputStream writer, JTextArea area){
 			this.writer = writer;
+			this.chatArea = area;
+		}
+		public chatInputListener(Vector<ObjectOutputStream> writers, JTextArea area){
+			this.allWriters = writers;
 			this.chatArea = area;
 		}
 		
@@ -237,7 +244,15 @@ public class ChatClient extends JFrame {
 			inputField.setText("");
 			chatArea.append(message);
 			try {
-				writer.writeObject(message);
+				if (writer != null){
+					writer.writeObject(message);
+					writer.flush();
+				} else if (allWriters != null){
+					for (ObjectOutputStream writer : allWriters){
+						writer.writeObject(message);
+						writer.flush();
+					}
+				}
 			} catch (IOException e1) {
 				System.out.println("Error in chatInputListener");
 				e1.printStackTrace();
@@ -285,7 +300,7 @@ public class ChatClient extends JFrame {
 
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			ArrayList<User> newChatUsers = new ArrayList<User>();
+			Vector<User> newChatUsers = new Vector<User>();
 			String names = "";
 			for (JCheckBox box: userBoxes){
 				if (box.isSelected()){
@@ -299,7 +314,7 @@ public class ChatClient extends JFrame {
 				}
 			}
 			
-			Thread newChat = new Thread(new ChatConnection(newChatUsers.get(0)));
+			Thread newChat = new Thread(new ChatConnection(newChatUsers));
 			newChat.start();
 			
 			
@@ -308,13 +323,12 @@ public class ChatClient extends JFrame {
 		
 	}
 	
-	private JPanel newChatPanel(ObjectOutputStream chatWriterStream) {
+	private JPanel newChatPanel() {
 		JPanel p = new JPanel();
 		p.setLayout(new BorderLayout());
 		JTextArea chatText = new JTextArea("");
 		chatText.setEditable(false);
 		JTextField inputBox = new JTextField("Type here");
-		inputBox.addActionListener(new chatInputListener(chatWriterStream, chatText));
 		p.add(chatText, BorderLayout.CENTER);
 		p.add(inputBox, BorderLayout.PAGE_END);
 		return p;
@@ -323,38 +337,121 @@ public class ChatClient extends JFrame {
 	private class ChatConnection implements Runnable {
 		//initiating the chat
 		
-		private User user;
+		private Vector<User> chatUsers;
+		private boolean isGroup;
+		private Vector<ObjectOutputStream> chatWriterStreams;
+		private Vector<ObjectInputStream> chatReaderStreams;
+		private JPanel groupChatPanel;
 		
-		public ChatConnection(User u) {
-			this.user = u;
+		public ChatConnection(Vector<User> u) {
+			this.chatUsers = u;
+			this.isGroup = u.size() > 1;
+			this.groupChatPanel = newChatPanel();
+
+			chatWriterStreams = new Vector<ObjectOutputStream>();
+			chatReaderStreams = new Vector<ObjectInputStream>();
+		}
+		
+		public String getOtherNames(User current){
+			String s = me.getName() + ", ";
+			for (User u: chatUsers){
+				if (!u.equals(current)){
+					s += u.getName() + ", ";
+				}
+			}
+			return s.substring(0, s.length() - 2);
 		}
 
 		@Override
 		public void run() {
-			try {
-				Socket peerSocket = new Socket(host, user.getPort());
-				
-				ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
-				chatWriterStreams.add(newChatWriterStream);
-				newChatWriterStream.writeObject(me.getName());
-				
-				ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
-				chatReaderStreams.add(newChatReaderStream);
-				
-				ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
-				reader.run();
-				System.out.println("Connected to " + user.getName());
-				
-				
-			} catch (UnknownHostException e) {
-				e.printStackTrace();
-			} catch (IOException e) {
-				e.printStackTrace();
+			for (User user : chatUsers){
+				System.out.println("building connection to " + user.getName() + ", out of " + chatUsers.size() + " users");
+				try {
+					Socket peerSocket = new Socket(host, user.getPort());
+					
+					ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
+					chatWriterStreams.add(newChatWriterStream);
+					newChatWriterStream.writeObject(getOtherNames(user));
+					newChatWriterStream.flush();
+					
+					ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
+					chatReaderStreams.add(newChatReaderStream);
+					
+					if (!this.isGroup){
+						ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
+						reader.run();
+					}
+//					}
+					System.out.println("Connected to " + user.getName());
+					
+					
+				} catch (UnknownHostException e) {
+					e.printStackTrace();
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
 			}
 			
+			if (this.isGroup){
+				JTextField chatField = (JTextField)groupChatPanel.getComponent(1);
+				chatField.addActionListener(new chatInputListener(chatWriterStreams, (JTextArea)groupChatPanel.getComponent(0)));
+				chatPane.addTab(chatUsers.toString().substring(1, chatUsers.toString().length()-1), groupChatPanel);
+				for (ObjectInputStream ois : chatReaderStreams){
+					GroupChatReader reader = new GroupChatReader(ois, chatWriterStreams, groupChatPanel);
+					Thread t = new Thread(reader);
+					t.start();
+				}
+			}
 		}
 		
 	}
+	
+	private class GroupChatReader implements Runnable {
+		ObjectInputStream reader;
+		Vector<ObjectOutputStream> allWriters;
+		boolean firstEntry = true;
+		JPanel chatPanel = null;
+		JTextArea chatArea = null;
+		
+		public GroupChatReader( ObjectInputStream ois, Vector<ObjectOutputStream> oos, JPanel groupChatPanel){
+			this.reader = ois;
+			this.allWriters = oos;
+			this.chatPanel = groupChatPanel;
+		}
+
+		@Override
+		public void run() {
+			String message = null;
+			while (true){
+				try {
+					message = (String)reader.readObject();
+					if (firstEntry){
+						System.out.println(message);
+						firstEntry = false;
+					} else {
+						chatArea = (JTextArea) chatPanel.getComponent(0);
+						for (ObjectOutputStream writer: allWriters){
+							writer.writeObject(message);
+						}
+						chatArea.append(message);
+					}
+					
+				} catch (Exception e) {
+					System.out.println("Error in GroupChat reader Thread");
+					e.printStackTrace();
+					try {
+						reader.close();
+						writer.close();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+					chatPane.remove(chatPanel);
+					return;
+				} 				
+			}
+		}		
+	}
+
 	
 	private class ChatReader implements Runnable {
 		ObjectInputStream reader;
@@ -362,6 +459,7 @@ public class ChatClient extends JFrame {
 		boolean firstEntry = true;
 		JPanel chatPanel = null;
 		JTextArea chatArea = null;
+		JTextField chatField = null;
 		
 		public ChatReader( ObjectInputStream ois, ObjectOutputStream oos){
 			this.reader = ois;
@@ -375,10 +473,12 @@ public class ChatClient extends JFrame {
 				try {
 					message = (String)reader.readObject();
 					if (firstEntry){
-						chatPanel = newChatPanel(writer);
+						chatPanel = newChatPanel();
+						chatField = (JTextField) chatPanel.getComponent(1);
 						chatArea = (JTextArea) chatPanel.getComponent(0);
+						chatField.addActionListener(new chatInputListener(writer, chatArea));
 						chatPane.addTab(message, chatPanel);
-						chatPane.updateUI();
+//						chatPane.updateUI();
 						System.out.println(message);
 						firstEntry = false;
 					} else {
@@ -398,8 +498,6 @@ public class ChatClient extends JFrame {
 					return;
 				} 				
 			}
-		}
-		
-		
+		}		
 	}
 }
