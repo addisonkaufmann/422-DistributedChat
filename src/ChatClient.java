@@ -43,6 +43,7 @@ public class ChatClient extends JFrame {
 
 	private Socket socketServer;
 	public static String host = "192.168.0.3"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
+	private static String myIP = "192.168.0.3";
 
 	private JTextArea text;
 	private ArrayList<JCheckBox> userBoxes;
@@ -107,7 +108,7 @@ public class ChatClient extends JFrame {
 			ServerSocket serverSock;
 			try {
 				serverSock = new ServerSocket(0);
-				me = new User(name, serverSock.getLocalPort());
+				me = new User(name, myIP, serverSock.getLocalPort());
 				while (true) {
 					Socket peerSocket = serverSock.accept();
 										
@@ -400,13 +401,12 @@ public class ChatClient extends JFrame {
 			for (User user : chatUsers){
 				System.out.println("building connection to " + user.getName() + ", out of " + chatUsers.size() + " users");
 				try {
-					Socket peerSocket = new Socket(host, user.getPort());
+					Socket peerSocket = new Socket(user.getIP(), user.getPort());
 					
 					ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
 					chatWriterStreams.add(newChatWriterStream);
 					newChatWriterStream.writeObject(getOtherNames(user));
-					newChatWriterStream.flush();
-					
+					newChatWriterStream.flush();					
 					ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
 					chatReaderStreams.add(newChatReaderStream);
 					
