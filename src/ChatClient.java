@@ -90,8 +90,6 @@ public class ChatClient extends JFrame {
 
 		chatPane = new JTabbedPane();
 		chatPanels = new ArrayList<>();
-		JLabel l = new JLabel("hey");
-		chatPane.addTab("Tab 1", null, l, "Does nothing");
 		cp.add(chatPane, BorderLayout.CENTER);
 		
 		userBoxes = new ArrayList<>();
@@ -377,7 +375,7 @@ public class ChatClient extends JFrame {
 					if (firstEntry){
 						chatPanel = newChatPanel(writer);
 						chatArea = (JTextArea) chatPanel.getComponent(0);
-						chatPane.add(name, chatPanel);
+						chatPane.addTab(message, chatPanel);
 						chatPane.updateUI();
 						System.out.println(message);
 						firstEntry = false;
