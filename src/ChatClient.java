@@ -1,7 +1,10 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Container;
+import java.awt.Dimension;
 import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
@@ -15,13 +18,18 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Vector;
 
+import javax.swing.BorderFactory;
+import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
+import javax.swing.JComponent;
 import javax.swing.JFrame;
+import javax.swing.JLabel;
 import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListModel;
@@ -36,6 +44,8 @@ public class ChatClient extends JFrame {
 	private JTextField nameEntry;
 	private ObjectOutputStream writer;
 	private ObjectInputStream inputFromServer;
+	private Vector<ObjectOutputStream> chatWriterStreams;
+	private Vector<ObjectInputStream> chatReaderStreams;
 	private Socket socketServer;
 	public static String host = "localhost"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
 
@@ -44,10 +54,13 @@ public class ChatClient extends JFrame {
 	private JPanel boxesPanel;
 	private JButton createButton;
 	private SelectionListener selectListener;
+	private JTabbedPane chatPane;
 
 	private Vector<User> users;
 	private int port;
 	private String name;
+	
+	private ArrayList<JComponent> chatPanels;
 
 	public ChatClient() {
 		setTitle("Chat Client");
@@ -55,35 +68,40 @@ public class ChatClient extends JFrame {
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
 		this.addWindowListener(new ListenForWindowClose());
 		Container cp = getContentPane();
-		cp.setLayout(new FlowLayout());
+		cp.setLayout(new BorderLayout());
 
 		nameEntry = new JTextField("Replace me with your name");
 		nameEntry.addActionListener(new InputFieldListener());
-		cp.add(nameEntry);
+		cp.add(nameEntry, BorderLayout.PAGE_START);
 		
-
+		chatWriterStreams = new Vector<ObjectOutputStream>();
+		chatReaderStreams = new Vector<ObjectInputStream>();
 		users = new Vector<User>();
 
-//		inputFromServerTextArea = new JTextArea();
 		text = new JTextArea();
-//		cp.add(userList);
-		cp.add(text);
+//		cp.add(text);
 		
 		selectListener = new SelectionListener();
+		
 		boxesPanel = new JPanel();
+		boxesPanel.setBackground(Color.WHITE);
+//		boxesPanel.setPreferredSize(new Dimension(100,100));
+		boxesPanel.setLayout(new BoxLayout(boxesPanel, BoxLayout.PAGE_AXIS));
+
+		chatPane = new JTabbedPane();
+		chatPanels = new ArrayList<>();
+		JLabel l = new JLabel("hey");
+		chatPane.addTab("Tab 1", null, l, "Does nothing");
+		cp.add(chatPane, BorderLayout.CENTER);
+		
 		userBoxes = new ArrayList<>();
 		updateBoxes();
 		createButton = new JButton("Create Chat");
 		createButton.setEnabled(false);
 		createButton.addActionListener(new createChatListener());
-		cp.add(boxesPanel); 
-		cp.add(createButton);
+		cp.add(boxesPanel, BorderLayout.LINE_START);
 
-//		JScrollPane scroller = new JScrollPane(inputFromServerTextArea);
-//		scroller.setSize(300, 400);
-//		scroller.setLocation(30, 40);
-//		scroller.setBackground(Color.WHITE);
-//		cp.add(scroller);
+
 
 		setVisible(true);
 		nameEntry.requestFocus();
@@ -91,7 +109,7 @@ public class ChatClient extends JFrame {
 	}
 	
 	private class AcceptChats implements Runnable {
-
+		//receiving the chat request
 		@Override
 		public void run() {
 			ServerSocket serverSock;
@@ -99,7 +117,18 @@ public class ChatClient extends JFrame {
 				serverSock = new ServerSocket(0);
 				me = new User(name, serverSock.getLocalPort());
 				while (true) {
-					Socket clientSocket = serverSock.accept();
+					Socket peerSocket = serverSock.accept();
+										
+					ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
+					chatWriterStreams.add(newChatWriterStream);
+					newChatWriterStream.writeObject(me.getName());
+					
+					ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
+					chatReaderStreams.add(newChatReaderStream);
+					
+					ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
+					reader.run();
+					//start a new thread
 					System.out.println("Accepted a chat");
 				}
 			} catch (IOException e) {
@@ -120,6 +149,7 @@ public class ChatClient extends JFrame {
 			return;
 		}
 		
+		
 		for( User user : users){
 			if (user.getName().equals(me.getName())) {
 				continue;
@@ -129,6 +159,9 @@ public class ChatClient extends JFrame {
 			userBoxes.add(box);
 			boxesPanel.add(box);
 		}
+		boxesPanel.add(createButton);
+		boxesPanel.repaint();
+		boxesPanel.updateUI();
 		
 
 	}
@@ -195,6 +228,29 @@ public class ChatClient extends JFrame {
 		}
 	}
 	
+	private class chatInputListener implements ActionListener {
+		private ObjectOutputStream writer;
+		private JTextArea chatArea;
+		
+		public chatInputListener(ObjectOutputStream writer, JTextArea area){
+			this.writer = writer;
+			this.chatArea = area;
+		}
+		
+		@Override
+		public void actionPerformed(ActionEvent e) {
+			String message = me.getName() + ": " + ((JTextField)e.getSource()).getText() + "\n";
+			chatArea.append(message);
+			try {
+				writer.writeObject(message);
+			} catch (IOException e1) {
+				System.out.println("Error in chatInputListener");
+				e1.printStackTrace();
+			}
+		}
+		
+	}
+	
 	
 	private class ListenForWindowClose extends WindowAdapter {
 
@@ -237,6 +293,7 @@ public class ChatClient extends JFrame {
 						if (u.getName().equals(box.getText())) {
 							Thread newChat = new Thread(new ChatConnection(u));
 							newChat.start();
+							box.setSelected(false);
 						}
 					}
 					userNames.add(box.getText());
@@ -251,7 +308,20 @@ public class ChatClient extends JFrame {
 		
 	}
 	
+	private JPanel newChatPanel(ObjectOutputStream chatWriterStream) {
+		JPanel p = new JPanel();
+		p.setLayout(new BorderLayout());
+		JTextArea chatText = new JTextArea("");
+		chatText.setEditable(false);
+		JTextField inputBox = new JTextField("Type here");
+		inputBox.addActionListener(new chatInputListener(chatWriterStream, chatText));
+		p.add(chatText, BorderLayout.CENTER);
+		p.add(inputBox, BorderLayout.PAGE_END);
+		return p;
+	}
+	
 	private class ChatConnection implements Runnable {
+		//initiating the chat
 		
 		private User user;
 		
@@ -262,10 +332,20 @@ public class ChatClient extends JFrame {
 		@Override
 		public void run() {
 			try {
-				socketServer = new Socket(host, user.getPort());
-				writer = new ObjectOutputStream(socketServer.getOutputStream());
-				inputFromServer = new ObjectInputStream(socketServer.getInputStream());
+				Socket peerSocket = new Socket(host, user.getPort());
+				
+				ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
+				chatWriterStreams.add(newChatWriterStream);
+				newChatWriterStream.writeObject(me.getName());
+				
+				ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
+				chatReaderStreams.add(newChatReaderStream);
+				
+				ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
+				reader.run();
 				System.out.println("Connected to " + user.getName());
+				
+				
 			} catch (UnknownHostException e) {
 				e.printStackTrace();
 			} catch (IOException e) {
@@ -273,6 +353,47 @@ public class ChatClient extends JFrame {
 			}
 			
 		}
+		
+	}
+	
+	private class ChatReader implements Runnable {
+		ObjectInputStream reader;
+		ObjectOutputStream writer;
+		boolean firstEntry = true;
+		JPanel chatPanel = null;
+		JTextArea chatArea = null;
+		
+		public ChatReader( ObjectInputStream ois, ObjectOutputStream oos){
+			this.reader = ois;
+			this.writer = oos;
+		}
+
+		@Override
+		public void run() {
+			String message = null;
+			while (true){
+				try {
+					message = (String)reader.readObject();
+					if (firstEntry){
+						chatPanel = newChatPanel(writer);
+						chatArea = (JTextArea) chatPanel.getComponent(0);
+						chatPane.add(name, chatPanel);
+						chatPane.updateUI();
+						System.out.println(message);
+						firstEntry = false;
+					} else {
+						chatArea.append(message);
+					}
+					
+				} catch (Exception e) {
+					System.out.println("Error in Chat reader Thread");
+					e.printStackTrace();
+				} 
+				//add to chat display
+				
+			}
+		}
+		
 		
 	}
 }
