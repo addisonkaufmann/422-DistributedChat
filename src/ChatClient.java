@@ -148,6 +148,7 @@ public class ChatClient extends JFrame {
 				continue;
 			}
 			JCheckBox box = new JCheckBox(user.getName());
+			box.setOpaque(false);
 			box.addItemListener(selectListener);
 			userBoxes.add(box);
 			boxesPanel.add(box);
@@ -227,14 +228,19 @@ public class ChatClient extends JFrame {
 		private ObjectOutputStream writer = null;
 		private Vector<ObjectOutputStream> allWriters = null;
 		private JTextArea chatArea;
+		private boolean isGroupHost = false;
+		private boolean isGroupReceiver;
 		
-		public chatInputListener(ObjectOutputStream writer, JTextArea area){
+		public chatInputListener(ObjectOutputStream writer, JTextArea area, boolean isGroupReceiver){
 			this.writer = writer;
 			this.chatArea = area;
+			this.isGroupReceiver = isGroupReceiver;
 		}
+		
 		public chatInputListener(Vector<ObjectOutputStream> writers, JTextArea area){
 			this.allWriters = writers;
 			this.chatArea = area;
+			isGroupHost = true;
 		}
 		
 		@Override
@@ -242,17 +248,20 @@ public class ChatClient extends JFrame {
 			JTextField inputField = (JTextField)e.getSource();
 			String message = me.getName() + ": " + inputField.getText() + "\n";
 			inputField.setText("");
-			chatArea.append(message);
 			try {
-				if (writer != null){
-					writer.writeObject(message);
-					writer.flush();
-				} else if (allWriters != null){
+				if (isGroupHost){
+					chatArea.append("listener: " + message); //groupHost
 					for (ObjectOutputStream writer : allWriters){
 						writer.writeObject(message);
 						writer.flush();
 					}
-				}
+				} else {
+					if (!isGroupReceiver){
+						chatArea.append("listener: " + message);
+					}
+					writer.writeObject(message);
+					writer.flush();
+				} 
 			} catch (IOException e1) {
 				System.out.println("Error in chatInputListener");
 				e1.printStackTrace();
@@ -476,9 +485,8 @@ public class ChatClient extends JFrame {
 						chatPanel = newChatPanel();
 						chatField = (JTextField) chatPanel.getComponent(1);
 						chatArea = (JTextArea) chatPanel.getComponent(0);
-						chatField.addActionListener(new chatInputListener(writer, chatArea));
+						chatField.addActionListener(new chatInputListener(writer, chatArea, message.indexOf(",") != -1));
 						chatPane.addTab(message, chatPanel);
-//						chatPane.updateUI();
 						System.out.println(message);
 						firstEntry = false;
 					} else {
