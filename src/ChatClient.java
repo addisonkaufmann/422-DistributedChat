@@ -3,6 +3,8 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.FocusEvent;
+import java.awt.event.FocusListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.WindowAdapter;
@@ -206,6 +208,12 @@ public class ChatClient extends JFrame {
 
 			try {
 				name = nameEntry.getText();
+				for (User u : users) {
+					if (u.getName().equals(name)) {
+						nameEntry.setText("Name taken. Please replace with a different username.");
+						return;
+					}
+				}
 				setTitle("Chat Client: " + name);
 				System.out.println("My name is " + name);
 				Thread acceptConnections = new Thread(new AcceptChats());
@@ -250,14 +258,14 @@ public class ChatClient extends JFrame {
 			inputField.setText("");
 			try {
 				if (isGroupHost){
-					chatArea.append("listener: " + message); //groupHost
+					chatArea.append(message); //groupHost
 					for (ObjectOutputStream writer : allWriters){
 						writer.writeObject(message);
 						writer.flush();
 					}
 				} else {
 					if (!isGroupReceiver){
-						chatArea.append("listener: " + message);
+						chatArea.append(message);
 					}
 					writer.writeObject(message);
 					writer.flush();
@@ -338,6 +346,15 @@ public class ChatClient extends JFrame {
 		JTextArea chatText = new JTextArea("");
 		chatText.setEditable(false);
 		JTextField inputBox = new JTextField("Type here");
+		inputBox.addFocusListener(new FocusListener() {
+			@Override
+			public void focusGained(FocusEvent e) {
+				inputBox.setText("");
+			}
+
+			@Override
+			public void focusLost(FocusEvent e) {}	
+		});
 		p.add(chatText, BorderLayout.CENTER);
 		p.add(inputBox, BorderLayout.PAGE_END);
 		return p;
