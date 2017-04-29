@@ -1,10 +1,6 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
-import java.awt.Component;
 import java.awt.Container;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
@@ -18,21 +14,17 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Vector;
 
-import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
-import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.ListModel;
 
 public class ChatClient extends JFrame {
 
@@ -124,10 +116,10 @@ public class ChatClient extends JFrame {
 					ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
 					chatReaderStreams.add(newChatReaderStream);
 					
+					System.out.println("Accepted a chat");
+
 					ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
 					reader.run();
-					//start a new thread
-					System.out.println("Accepted a chat");
 				}
 			} catch (IOException e) {
 				e.printStackTrace();
@@ -386,9 +378,15 @@ public class ChatClient extends JFrame {
 				} catch (Exception e) {
 					System.out.println("Error in Chat reader Thread");
 					e.printStackTrace();
-				} 
-				//add to chat display
-				
+					try {
+						reader.close();
+						writer.close();
+					} catch (IOException e1) {
+						e1.printStackTrace();
+					}
+					chatPane.remove(chatPanel);
+					return;
+				} 				
 			}
 		}
 		
