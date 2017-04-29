@@ -3,6 +3,8 @@ import java.awt.Color;
 import java.awt.Container;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ItemEvent;
+import java.awt.event.ItemListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
 import java.io.IOException;
@@ -62,7 +64,7 @@ public class ChatClient extends JFrame {
 		Container cp = getContentPane();
 		cp.setLayout(new BorderLayout());
 
-		nameEntry = new JTextField("Replace me with your name");
+		nameEntry = new JTextField("Your name");
 		nameEntry.addActionListener(new InputFieldListener());
 		cp.add(nameEntry, BorderLayout.PAGE_START);
 		
@@ -145,7 +147,7 @@ public class ChatClient extends JFrame {
 				continue;
 			}
 			JCheckBox box = new JCheckBox(user.getName());
-			box.addActionListener(selectListener);
+			box.addItemListener(selectListener);
 			userBoxes.add(box);
 			boxesPanel.add(box);
 		}
@@ -202,6 +204,7 @@ public class ChatClient extends JFrame {
 
 			try {
 				name = nameEntry.getText();
+				setTitle("Chat Client: " + name);
 				Thread acceptConnections = new Thread(new AcceptChats());
 				acceptConnections.start();
 				while (me == null);
@@ -229,7 +232,9 @@ public class ChatClient extends JFrame {
 		
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			String message = me.getName() + ": " + ((JTextField)e.getSource()).getText() + "\n";
+			JTextField inputField = (JTextField)e.getSource();
+			String message = me.getName() + ": " + inputField.getText() + "\n";
+			inputField.setText("");
 			chatArea.append(message);
 			try {
 				writer.writeObject(message);
@@ -256,10 +261,15 @@ public class ChatClient extends JFrame {
 		}
 	}
 	
-	private class SelectionListener implements ActionListener {
+	private class SelectionListener implements ItemListener {
+
+//		@Override
+//		public void actionPerformed(ActionEvent e) {
+//
+//		}
 
 		@Override
-		public void actionPerformed(ActionEvent e) {
+		public void itemStateChanged(ItemEvent arg0) {
 			System.out.println("action");
 			createButton.setEnabled(true);
 			for(JCheckBox box: userBoxes){
@@ -267,7 +277,7 @@ public class ChatClient extends JFrame {
 					return;
 				}
 			}
-			createButton.setEnabled(false);
+			createButton.setEnabled(false);			
 		}
 	}
 	
@@ -275,25 +285,25 @@ public class ChatClient extends JFrame {
 
 		@Override
 		public void actionPerformed(ActionEvent e) {
-			ArrayList<String> userNames = new ArrayList<String>();
+			ArrayList<User> newChatUsers = new ArrayList<User>();
 			String names = "";
 			for (JCheckBox box: userBoxes){
 				if (box.isSelected()){
-					for (User u : users) {
-						if (u.getName().equals(box.getText())) {
-							Thread newChat = new Thread(new ChatConnection(u));
-							newChat.start();
-							box.setSelected(false);
-						}
-					}
-					userNames.add(box.getText());
 					names += box.getText() + ", ";
-					
+					box.setSelected(false);
+					for (User u : users) {	
+						if (u.getName().equals(box.getText())) {
+							newChatUsers.add(u);
+						}
+					}	
 				}
 			}
 			
+			Thread newChat = new Thread(new ChatConnection(newChatUsers.get(0)));
+			newChat.start();
 			
-			System.out.println("Created a chat with " + names);
+			
+			System.out.println("Creating a chat with " + names);
 		}
 		
 	}
