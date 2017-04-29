@@ -42,7 +42,7 @@ public class ChatClient extends JFrame {
 	private ObjectInputStream inputFromServer;
 
 	private Socket socketServer;
-	public static String host = "localhost"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
+	public static String host = "192.168.0.3"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
 
 	private JTextArea text;
 	private ArrayList<JCheckBox> userBoxes;
@@ -412,7 +412,8 @@ public class ChatClient extends JFrame {
 					
 					if (!this.isGroup){
 						ChatReader reader = new ChatReader(newChatReaderStream, newChatWriterStream);
-						reader.run();
+						Thread t = new Thread(reader);
+						t.start();
 					}
 //					}
 					System.out.println("Connected to " + user.getName());
