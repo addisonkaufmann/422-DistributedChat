@@ -1,5 +1,10 @@
 import java.io.Serializable;
 
+/**
+ * The User class holds information regarding the username and connection of a particular client.
+ * @author Aaron & Addison
+ *
+ */
 public class User implements Serializable {
 	private int port;
 	private String name;
