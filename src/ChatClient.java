@@ -2,7 +2,6 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Container;
 import java.awt.Font;
-import java.awt.FontFormatException;
 import java.awt.GraphicsEnvironment;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
@@ -28,20 +27,35 @@ import javax.swing.JButton;
 import javax.swing.JCheckBox;
 import javax.swing.JComponent;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
-import javax.swing.UnsupportedLookAndFeelException;
 
 /**
  * The ChatClient class requires a ChatServer to be running to connect to. The host should be changed
  * to reflect the location of the server. This class allows user to enter a username and begin chatting with
- * other connected individuals as well as start group chats. Duplicate usernames are not allowed.
+ * other connected individuals as well as start group chats. Duplicate usernames are not allowed, and duplicate
+ * chats containing the exact same members are not allowed.
  * A particular chat will close when a single participant disconnects.
+ * 
+ * Implementation:
+ * When the program starts, chatclient X waits for a name input. When it's given, X's name is sent to the server, and
+ * then out to all other users so X is now visible. A thread is started in X to read these user list updates from the server
+ * continually (and update the UI).
+ *  
+ * Now, X can start chats with others. This is handled through a buttonlistener on the "create chat" button,
+ * which starts a chatconnection thread. The chatConnection initializes the connection, and creates a reader thread, which reads
+ * input from the chat peer and manage the UI. If X selects multiple users when creating the chat, X becomes the "host" of the 
+ * group chat. The group members send messages to X, which X broadcasts to all other members.  
+ *  
+ * X could also be added to a chat by another user. This is handled through the acceptChats thread, which starts when X makes
+ * server connection. acceptChats continually accepts connections from other users, and creates a reader thread to handle
+ * the chatting. If X is part of a group chat, but not the host, the behaviour is mostly the same as for a one-on-one chat, in
+ * that X is only interacting directly with the host.
+ *  
  * @author Aaron & Addison
  *
  */
@@ -72,30 +86,22 @@ public class ChatClient extends JFrame {
 	private JButton createButton;
 	private SelectionListener selectListener;
 	private JTabbedPane chatPane;
-
 	private Vector<User> users;
 	private int port;
 	private String name;
-	
 	private Font textFont;
-
-	
 	private ArrayList<JComponent> chatPanels;
 
+	
+	/**
+	 * Constructor
+	 * Initializes the gui elements, and calls serverConnect
+	 */
 	public ChatClient() {
 		try {
 			UIManager.setLookAndFeel("com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel");
-		} catch (ClassNotFoundException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		} catch (InstantiationException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		} catch (IllegalAccessException e1) {
-			// TODO Auto-generated catch block
-			e1.printStackTrace();
-		} catch (UnsupportedLookAndFeelException e1) {
-			// TODO Auto-generated catch block
+		} catch (Exception e1) {
+			System.out.println("Error loading theme");
 			e1.printStackTrace();
 		}
 
@@ -109,7 +115,6 @@ public class ChatClient extends JFrame {
 		try {
 			myIP = InetAddress.getLocalHost().getHostAddress();
 		} catch (UnknownHostException e) {
-			// TODO Auto-generated catch block
 			e.printStackTrace();
 			System.exit(-1);
 		}
@@ -125,13 +130,11 @@ public class ChatClient extends JFrame {
 		users = new Vector<User>();
 
 		text = new JTextArea();
-//		cp.add(text);
 		
 		selectListener = new SelectionListener();
 		
 		boxesPanel = new JPanel();
 		boxesPanel.setBackground(Color.WHITE);
-//		boxesPanel.setPreferredSize(new Dimension(100,100));
 		boxesPanel.setLayout(new BoxLayout(boxesPanel, BoxLayout.PAGE_AXIS));
 
 		chatPane = new JTabbedPane();
@@ -139,7 +142,6 @@ public class ChatClient extends JFrame {
 		chatPane.setBackground(Color.WHITE);
 		chatPane.setFont(textFont);
 		cp.add(chatPane, BorderLayout.CENTER);
-		updateTabColors();
 		
 		userBoxes = new ArrayList<>();
 		updateBoxes();
@@ -150,12 +152,17 @@ public class ChatClient extends JFrame {
 		cp.add(boxesPanel, BorderLayout.LINE_START);
 
 
-
 		setVisible(true);
 		nameEntry.requestFocus();
-		makeConnectionAndReadAllServerOutputFromServer();
+		serverConnect();
 	}
 	
+	/**
+	 * A thread that continually accepts chat connections from peers.
+	 * When it accepts the socket, it creates a read and write stream, 
+	 * then creates a chatreader thread to manage the IO of the chat. 
+	 *
+	 */
 	private class AcceptChats implements Runnable {
 		//receiving the chat request
 		@Override
@@ -168,13 +175,10 @@ public class ChatClient extends JFrame {
 					Socket peerSocket = serverSock.accept();
 										
 					ObjectOutputStream newChatWriterStream = new ObjectOutputStream(peerSocket.getOutputStream());
-//					chatWriterStreams.add(newChatWriterStream);
 					newChatWriterStream.writeObject(me.getName());
 					newChatWriterStream.flush();
-
 					
 					ObjectInputStream newChatReaderStream = new ObjectInputStream(peerSocket.getInputStream());
-//					chatReaderStreams.add(newChatReaderStream);
 					
 					System.out.println("Accepted a chat");
 
@@ -189,6 +193,10 @@ public class ChatClient extends JFrame {
 		
 	}
 	
+	/**
+	 * Updates the checkboxes representing the currently
+	 * online users.
+	 */
 	private void updateBoxes(){
 		boxesPanel.removeAll();
 		userBoxes.clear();
@@ -219,9 +227,14 @@ public class ChatClient extends JFrame {
 
 	}
 
-	private void makeConnectionAndReadAllServerOutputFromServer() {
+	/**
+	 *	Makes the connection to the server, and loops through reading
+	 *	the vector of new users that have logged in, or users that have
+	 *	left the chat. Calls updateboxes() to update the gui based on 
+	 *	new users.
+	 */
+	private void serverConnect() {
 		try {
-			// host could be "localhost", port could be 4000
 			socketServer = new Socket(host, ChatServer.PORT_NUMBER);
 			writer = new ObjectOutputStream(socketServer.getOutputStream());
 			inputFromServer = new ObjectInputStream(socketServer.getInputStream());
@@ -258,9 +271,14 @@ public class ChatClient extends JFrame {
 		}
 	}
 
+	
+	/**
+	 * Listener for the initial "your name" textfield. Simply writes
+	 * the name to the server. If the name exists within the current
+	 * vector of users, it warns the user and does not send the name.
+	 *
+	 */
 	public class InputFieldListener implements ActionListener {
-		// Precondition: This client has successfully connected to
-		// a server and writer is a reference to the server's output stream.
 		public void actionPerformed(ActionEvent ev) {
 
 			try {
@@ -289,6 +307,13 @@ public class ChatClient extends JFrame {
 		}
 	}
 	
+	/**
+	 * Input listener for the chatfield. This method gets text from the chat
+	 * box, then sends it to the chat peer (or group host). It writes the message
+	 * to it's own chatbox, unless it is a group receiver, then it will not 
+	 * write until it receives the message back from the group host.
+	 *
+	 */
 	private class chatInputListener implements ActionListener {
 		private ObjectOutputStream writer = null;
 		private Vector<ObjectOutputStream> allWriters = null;
@@ -353,12 +378,14 @@ public class ChatClient extends JFrame {
 		}
 	}
 	
+	
+	/**
+	 * Listens for selections in the list of user checkboxes,
+	 * when at least one box is selected, the create chat button
+	 * will be enabled.
+	 *
+	 */
 	private class SelectionListener implements ItemListener {
-
-//		@Override
-//		public void actionPerformed(ActionEvent e) {
-//
-//		}
 
 		@Override
 		public void itemStateChanged(ItemEvent arg0) {
@@ -373,6 +400,11 @@ public class ChatClient extends JFrame {
 		}
 	}
 	
+	/**
+	 * Listens for a "create chat" button click and starts a new
+	 * ChatConnection thread to manage the chat.
+	 *
+	 */
 	private class createChatListener implements ActionListener {
 
 		@Override
@@ -407,13 +439,13 @@ public class ChatClient extends JFrame {
 		
 	}
 	
-	private void updateTabColors(){
-		for (int i = 0; i < chatPane.getTabCount(); i++){
-			chatPane.setBackground(Color.WHITE);
-			chatPane.setBackgroundAt(i, null);
-		}
-	}
-	
+	/**
+	 * Returns a new JPanel to add to the jtabbed pane, 
+	 * when a new chat gets created. The JPanel
+	 * contains an inputfield and a textarea to hold
+	 * the chat history. 
+	 * @return
+	 */
 	private JPanel newChatPanel() {
 		JPanel p = new JPanel();
 		p.setLayout(new BorderLayout());
@@ -436,6 +468,14 @@ public class ChatClient extends JFrame {
 		return p;
 	}
 	
+	/**
+	 * Chat connection represents a single a tab of the gui (i.e. single or group chat).
+	 * It initializes the direct peer connection either between two users, or between
+	 * a group host and group members. It maintains a vector of the users, and their respective
+	 * IO streams. After initializing these vectors, it creates a chatreader thread to manage
+	 * the IO of the chat. 
+	 *
+	 */
 	private class ChatConnection implements Runnable {
 		//initiating the chat
 		
@@ -483,7 +523,6 @@ public class ChatClient extends JFrame {
 						Thread t = new Thread(reader);
 						t.start();
 					}
-//					}
 					System.out.println("Connected to " + user.getName());
 					
 					
@@ -498,7 +537,6 @@ public class ChatClient extends JFrame {
 				JTextField chatField = (JTextField)groupChatPanel.getComponent(1);
 				chatField.addActionListener(new chatInputListener(chatWriterStreams, (JTextArea)groupChatPanel.getComponent(0)));
 				chatPane.addTab(chatUsers.toString().substring(1, chatUsers.toString().length()-1), groupChatPanel);
-				updateTabColors();
 				for (ObjectInputStream ois : chatReaderStreams){
 					GroupChatReader reader = new GroupChatReader(ois, chatWriterStreams, groupChatPanel);
 					Thread t = new Thread(reader);
@@ -509,6 +547,12 @@ public class ChatClient extends JFrame {
 		
 	}
 	
+	/**
+	 * GROUP HOST
+	 * This class is only used for the group host. It reads peer input from it's stream
+	 * and then writes it back to all the group members. 
+	 *
+	 */
 	private class GroupChatReader implements Runnable {
 		ObjectInputStream reader;
 		Vector<ObjectOutputStream> allWriters;
@@ -555,7 +599,14 @@ public class ChatClient extends JFrame {
 		}		
 	}
 
-	
+	/**
+	 * Single chat or group receiver
+	 * This is the regular chatreader used for group receivers and single chatters. As such, 
+	 * it only has one reader and writer. If it's the first entry, it creates the tab to view
+	 * the chat, else it just appends to the tab. 
+	 * @author Addison
+	 *
+	 */
 	private class ChatReader implements Runnable {
 		ObjectInputStream reader;
 		ObjectOutputStream writer;
@@ -581,7 +632,6 @@ public class ChatClient extends JFrame {
 						chatArea = (JTextArea) chatPanel.getComponent(0);
 						chatField.addActionListener(new chatInputListener(writer, chatArea, message.indexOf(",") != -1));
 						chatPane.addTab(message, chatPanel);
-						updateTabColors();
 						System.out.println(message);
 						firstEntry = false;
 					} else {
