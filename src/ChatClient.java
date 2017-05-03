@@ -37,6 +37,14 @@ import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.UnsupportedLookAndFeelException;
 
+/**
+ * The ChatClient class requires a ChatServer to be running to connect to. The host should be changed
+ * to reflect the location of the server. This class allows user to enter a username and begin chatting with
+ * other connected individuals as well as start group chats. Duplicate usernames are not allowed.
+ * A particular chat will close when a single participant disconnects.
+ * @author Aaron & Addison
+ *
+ */
 public class ChatClient extends JFrame {
 
 	public static void main(String[] args) {
@@ -327,7 +335,10 @@ public class ChatClient extends JFrame {
 		
 	}
 	
-	
+	/**
+	 * Attempts to notify the server that the client is disconnected before the application is closed.
+	 *
+	 */
 	private class ListenForWindowClose extends WindowAdapter {
 
 		@Override

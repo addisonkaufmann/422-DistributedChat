@@ -7,6 +7,13 @@ import java.util.Vector;
 
 import javax.swing.JOptionPane;
 
+/**
+ * This class runs a server for a distributed chat client. The server should be started first
+ * before any ChatClient instances. The server accepts new client connections and informs all other 
+ * currently connected clients of a new clients and of clients disconnecting.
+ * @author Aaron & Addison
+ *
+ */
 public class ChatServer {
 
 	public static int PORT_NUMBER = 4004;
@@ -24,13 +31,16 @@ public class ChatServer {
 		try {
 			@SuppressWarnings("resource")
 			ServerSocket serverSock = new ServerSocket(PORT_NUMBER);
+			
+			// Continuously accept new clients
 			while (true) {
 				Socket clientSocket = serverSock.accept();
 				System.out.println(clientSocket.getPort());
 				ObjectOutputStream writer = new ObjectOutputStream(clientSocket.getOutputStream());
 				clientOutputStreams.add(writer);
 				
-				Thread t = new Thread(new ReadInputThread(clientSocket, writer));
+				// Create new thread to handle the newest client
+				Thread t = new Thread(new ReadInputThread(clientSocket, writer)); 
 				t.start();
 				System.out.println("got a connection");
 			}
@@ -39,6 +49,13 @@ public class ChatServer {
 		}
 	}
 	
+	/**
+	 * This class is a thread that interacts with one specific client. It receives the client's username
+	 * and then informs the other chat clients of the new user. It then waits for the client to
+	 * send a message that it is disconnecting. Once received, the thread removes this client's connection
+	 * from the list of connections.
+	 *
+	 */
 	private class ReadInputThread implements Runnable {
 
 		ObjectInputStream reader;
@@ -93,7 +110,9 @@ public class ChatServer {
 			}
 		}
 
-		// Send the same message to all clients
+		/**
+		 * This method loops through each client sending them the updates list of users.
+		 */
 		public void tellEveryone() {
 			for (ObjectOutputStream output : clientOutputStreams) {
 				try {
