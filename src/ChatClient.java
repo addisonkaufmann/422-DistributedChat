@@ -1,6 +1,9 @@
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Container;
+import java.awt.Font;
+import java.awt.FontFormatException;
+import java.awt.GraphicsEnvironment;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.FocusEvent;
@@ -9,6 +12,7 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.File;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -30,10 +34,18 @@ import javax.swing.JPanel;
 import javax.swing.JTabbedPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.UIManager;
+import javax.swing.UnsupportedLookAndFeelException;
 
 public class ChatClient extends JFrame {
 
 	public static void main(String[] args) {
+		GraphicsEnvironment ge = GraphicsEnvironment.getLocalGraphicsEnvironment();
+		try {
+			ge.registerFont(Font.createFont(Font.TRUETYPE_FONT, new File("Roboto-Condensed.ttf")));
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
 		new ChatClient();
 	}
 
@@ -43,7 +55,7 @@ public class ChatClient extends JFrame {
 	private ObjectInputStream inputFromServer;
 
 	private Socket socketServer;
-	public static String host = "192.168.0.3"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
+	public static String host = "localhost"; //ipconfig -- wireless ac network controller, virtual switch 192.168.0.3
 	private String myIP;
 	
 	private JTextArea text;
@@ -57,9 +69,28 @@ public class ChatClient extends JFrame {
 	private int port;
 	private String name;
 	
+	private Font textFont;
+
+	
 	private ArrayList<JComponent> chatPanels;
 
 	public ChatClient() {
+		try {
+			UIManager.setLookAndFeel("com.sun.java.swing.plaf.nimbus.NimbusLookAndFeel");
+		} catch (ClassNotFoundException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (InstantiationException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (IllegalAccessException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		} catch (UnsupportedLookAndFeelException e1) {
+			// TODO Auto-generated catch block
+			e1.printStackTrace();
+		}
+
 		setTitle("Chat Client");
 		setSize(380, 480);
 		setDefaultCloseOperation(JFrame.DO_NOTHING_ON_CLOSE);
@@ -75,8 +106,11 @@ public class ChatClient extends JFrame {
 			System.exit(-1);
 		}
 
+		textFont = new Font("Roboto Condensed", Font.PLAIN, 14);
+		
 		nameEntry = new JTextField("Your name");
 		nameEntry.addActionListener(new InputFieldListener());
+		nameEntry.setFont(textFont);
 		cp.add(nameEntry, BorderLayout.PAGE_START);
 		
 		
@@ -94,13 +128,17 @@ public class ChatClient extends JFrame {
 
 		chatPane = new JTabbedPane();
 		chatPanels = new ArrayList<>();
+		chatPane.setBackground(Color.WHITE);
+		chatPane.setFont(textFont);
 		cp.add(chatPane, BorderLayout.CENTER);
+		updateTabColors();
 		
 		userBoxes = new ArrayList<>();
 		updateBoxes();
 		createButton = new JButton("Create Chat");
 		createButton.setEnabled(false);
 		createButton.addActionListener(new createChatListener());
+		createButton.setFont(textFont);
 		cp.add(boxesPanel, BorderLayout.LINE_START);
 
 
@@ -160,6 +198,7 @@ public class ChatClient extends JFrame {
 				continue;
 			}
 			JCheckBox box = new JCheckBox(user.getName());
+			box.setFont(textFont);
 			box.setOpaque(false);
 			box.addItemListener(selectListener);
 			userBoxes.add(box);
@@ -357,12 +396,21 @@ public class ChatClient extends JFrame {
 		
 	}
 	
+	private void updateTabColors(){
+		for (int i = 0; i < chatPane.getTabCount(); i++){
+			chatPane.setBackground(Color.WHITE);
+			chatPane.setBackgroundAt(i, null);
+		}
+	}
+	
 	private JPanel newChatPanel() {
 		JPanel p = new JPanel();
 		p.setLayout(new BorderLayout());
 		JTextArea chatText = new JTextArea("");
 		chatText.setEditable(false);
+		chatText.setFont(textFont);
 		JTextField inputBox = new JTextField("Type here");
+		inputBox.setFont(textFont);
 		inputBox.addFocusListener(new FocusListener() {
 			@Override
 			public void focusGained(FocusEvent e) {
@@ -439,6 +487,7 @@ public class ChatClient extends JFrame {
 				JTextField chatField = (JTextField)groupChatPanel.getComponent(1);
 				chatField.addActionListener(new chatInputListener(chatWriterStreams, (JTextArea)groupChatPanel.getComponent(0)));
 				chatPane.addTab(chatUsers.toString().substring(1, chatUsers.toString().length()-1), groupChatPanel);
+				updateTabColors();
 				for (ObjectInputStream ois : chatReaderStreams){
 					GroupChatReader reader = new GroupChatReader(ois, chatWriterStreams, groupChatPanel);
 					Thread t = new Thread(reader);
@@ -521,6 +570,7 @@ public class ChatClient extends JFrame {
 						chatArea = (JTextArea) chatPanel.getComponent(0);
 						chatField.addActionListener(new chatInputListener(writer, chatArea, message.indexOf(",") != -1));
 						chatPane.addTab(message, chatPanel);
+						updateTabColors();
 						System.out.println(message);
 						firstEntry = false;
 					} else {
