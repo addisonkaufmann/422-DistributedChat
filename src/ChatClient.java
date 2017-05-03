@@ -245,11 +245,11 @@ public class ChatClient extends JFrame {
 			System.exit(0);
 		}
 		
-		String message;
 		try {
 			port = (int) inputFromServer.readObject(); // Get this client's port from server
 			System.out.println("received my port: " + port);
 			while (true) {
+				@SuppressWarnings("unchecked")
 				Vector<User> temp = (Vector<User>) inputFromServer.readObject();
 				users = new Vector<User>(temp);
 				updateBoxes();
